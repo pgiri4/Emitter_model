@@ -1,1 +1,46 @@
+from scipy import constants
+import numpy as np
+from NuRadioReco.utilities import units, fft
+import logging
+logger = logging.getLogger("SignalGen.emitter")
+import os
+import matplotlib.pyplot as plt
+from radiotools import helper as hp
+from NuRadioReco.detector import antennapattern
+
+####### emitter ######
+#antenna_model = "bicone_v8_inf_n1.78"
+#antenna_model  = "XFDTD_Vpol_CrossFeed_150mmHole_n1.78"
+
+antenna_pattern_provider = antennapattern.AntennaPatternProvider()
+bicone = antenna_pattern_provider.load_antenna_pattern( "bicone_v8_inf_n1.78") #"XFDTD_Vpol_CrossFeed_150mmHole_n1.78"
+
+##### parameters ####
+####### emitter #########
+N = 200
+amplitude = 1 *units.volt
+dt = 0.5 *units.ns
+n_index = 1.78
+c = constants.c * units.m / units.s
+######## Voltage Signal #########
+trace = np.zeros(N)
+trace[N // 2] = amplitude
+time = np.linspace(-(N / 2) * dt, ((N - 1) - N / 2) * dt, N)
+
+plt.plot(time, trace)
+plt.axvline(time[time == 0], linestyle='--', lw=1, c = 'black')
+
+##### In frequency domain ########
+voltage_spectrum_emitter = np.fft.rfft(trace)
+frequencies = np.fft.rfftfreq(N, dt)
+VEL = bicone.get_antenna_response_vectorized(frequencies,90*units.deg,np.deg2rad(0),np.deg2rad(180), 0, np.deg2rad(90), np.deg2rad(0))
+
+######## Convolve VEL with Voltage Spectrum ##########
+eTheta = VEL['theta'] * (-1j) * voltage_spectrum_emitter * frequencies * n_index / (c)
+
+Efield = np.fft.irfft(eTheta)
+
+plt.plot(time, Efield)
+plt.savefig("voltage_Efield.png")
+plt.close()
 
